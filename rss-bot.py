@@ -72,19 +72,22 @@ def check_feed(bot: GroupmeBot, feed: Dict, silent: bool = False) -> None:
 
     # Find new items by using a hash set (literally a hash set of hashes)
     seen = set(feed.get("seen_entries", []))
-    entries = {md5(e.get("title", "") + e.get("summary", "")).hexdigest(): e
-               for e in feed_data.entries}
+    entries = dict()
+    for entry in feed_data.entries:
+        string = entry.get("title", "") + entry.get("summary", "")
+        key = md5(string.encode("utf-8")).hexdigest()
+        entries[key] = entry
 
     if not silent:
         for key in set(entries) - seen:
             entry = entries[key]
             output = feed.get("title", "")
             if "title" in entry:
-                output += "\n" + entry["title"]
+                output += "\n" + entry["title"].strip()
             if "description" in entry and len(entry["description"]) < 500:
-                output += "\n" + html2text(entry["description"])
+                output += "\n" + html2text(entry["description"]).strip()
             if "link" in entry:
-                output += "\n" + entry["link"]
+                output += "\n" + entry["link"].strip()
             bot.send(output)
 
     feed["seen_entries"] = list(seen | set(entries))
