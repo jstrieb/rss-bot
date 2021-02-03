@@ -159,7 +159,7 @@ def main(bot_id: str) -> None:
     try:
         if args.cron or "REQUEST_METHOD" not in env:
             check_feeds(bot, args.feed_file)
-        elif env.get("REQUEST_METHOD") == "POST":
+        elif env.get("REQUEST_METHOD").lower() == "post":
             print("Content-type: text/html\n\n")
 
             headers = {k[5:].replace("_", "-"): v for k, v in env.items()
@@ -168,7 +168,8 @@ def main(bot_id: str) -> None:
             data = json.loads(sys.stdin.read(content_length))
             handle_post(bot, data, headers, args.feed_file)
         else:
-            assert(env.get("REQUEST_METHOD") == "GET")
+            assert(env.get("REQUEST_METHOD").lower() == "get")
+            print("Content-type: text/html\n\n")
             print("Nothing to see here.")
     except Exception as e:
         bot.send(f"Exception\n{str(e)}")
