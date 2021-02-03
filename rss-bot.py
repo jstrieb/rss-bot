@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-c", "--cron", action="store_true",
                         help="Check feeds instead of handling messages")
     parser.add_argument("-f", "--feed_file", action="store",
-                        default="~/.rssfeeds.json",
+                        default="/home/jstrieb/.rssfeeds.json",
                         help="File with stored feed metadata")
 
     return parser.parse_args()
@@ -49,7 +49,7 @@ def load_data(feed_filename: str) -> Dict:
     try:
         with open(feed_filename, "r") as f:
             feeds = json.load(f)
-    except FileNotFoundError:
+    except (FileNotFoundError, json.decoder.JSONDecodeError):
         feeds = dict()
     return feeds
 
@@ -144,7 +144,7 @@ def handle_post(bot: GroupmeBot, data: Dict,
 
     elif text.startswith("rsslist"):
         feeds = load_data(feed_filename).get("feedlist", [])
-        titles = map(lambda i, f: f"{i + 1}. {f.get('title', '')}",
+        titles = map(lambda f: f"{f[0] + 1}. {f[1].get('title', '')}",
                      enumerate(feeds))
         bot.send("Subscribed feeds:\n" + "\n".join(titles))
 
@@ -176,7 +176,10 @@ def main(bot_id: str) -> None:
             print("Content-type: text/html\n\n")
             print("Nothing to see here.")
     except Exception as e:
-        bot.send(f"Exception\n{str(e)}")
+        if DEBUG:
+            raise e
+        else:
+            bot.send(f"Exception\n{str(e)}")
 
 
 if __name__ == "__main__":
@@ -185,7 +188,11 @@ if __name__ == "__main__":
     # - Add "export RSS_BOT_ID=..." to /etc/apache2/envvars
     # - Add "SetEnv RSS_BOT_ID ${RSS_BOT_ID}" to VirtualHost in
     #   /etc/apache2/sites-available/000-default.conf
-    
+
+    # Make sure to also run
+    # touch ~/.rssfeeds.json
+    # chmod 666 .rssfeeds.json
+
     if DEBUG:
         # Display errors in a well-formatted way if debugging
         print("Content-type: text/html\n\n")
