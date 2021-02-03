@@ -9,6 +9,10 @@ import sys
 
 from typing import Dict
 
+# Required to make feedparser import successfully in Apache cgi-bin
+for user in os.listdir("/home"):
+    sys.path.insert(0, f"/home/{user}/.local/lib/python3.8/site-packages")
+
 import feedparser
 
 from groupme import GroupmeBot
@@ -178,6 +182,7 @@ def main(bot_id: str) -> None:
 if __name__ == "__main__":
     if DEBUG:
         # Display errors in a well-formatted way if debugging
+        print("Content-type: text/html\n\n")
         cgitb.enable()
         main(os.getenv("RSS_BOT_ID", None))
     else:
