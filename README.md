@@ -30,6 +30,12 @@ doing this, be sure to set the callback URL to
 echo 'export RSS_BOT_ID="YOUR GROUPME BOT ID HERE"' >> ~/.bashrc
 ```
 
+Also export the bot ID to allow `cron` to see it.
+
+```
+echo 'RSS_BOT_ID="YOUR GROUPME BOT ID HERE"' | sudo tee -a /etc/environment
+```
+
 Make sure Apache has access to the `RSS_BOT_ID` environment variable.
 
 - Add `export RSS_BOT_ID` to `/etc/apache2/envvars`
@@ -47,7 +53,7 @@ Add the program to the `crontab` by running `crontab -e` and adding an entry
 like the following.
 
 ```
-0/5 * * * * python3 /usr/lib/cgi-bin/rss-bot/rss-bot.py
+*/5 * * * * python3 /usr/lib/cgi-bin/rss-bot/rss-bot.py
 ```
 
 Restart Apache.
