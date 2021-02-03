@@ -41,27 +41,108 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def load_data(feed_filename: str) -> Dict:
+    try:
+        with open(feed_filename, "r") as f:
+            feeds = json.load(f)
+    except FileNotFoundError:
+        feeds = dict()
+    return feeds
+
+
+def save_data(feed_filename: str, feed_data: Dict) -> None:
+    with open(feed_filename, "w") as f:
+        json.dump(feed_data, f)
+
+
 def check_feeds(bot: GroupmeBot, feed_filename: str) -> None:
     """
     Check feeds for updates, sending via GroupMe if updated info
     :param bot: bot to send updates with
     :param feed_filename: saved feed data to read from and write to
     """
-    try:
-        with open(feed_filename, "r") as f:
-            feeds = json.load(f)
-    except FileNotFoundError:
-        feeds = dict()
+    feeds = load_data(feed_filename)
     print(json.dumps(feeds, indent=2))
 
 
-def handle_message(bot: GroupmeBot, headers: Dict[str, str]) -> None:
+def handle_post(bot: GroupmeBot, data: Dict,
+                headers: Dict[str, str], feed_filename: str) -> None:
     """
     Handle user commands sent via GroupMe and received over CGI
     :param bot: bot to send replies with
+    :param data: GroupMe message data
     :param headers: HTTP headers
+    :param feed_filename: saved feed data to read from and write to
     """
-    pass
+    # Don't respond to other bots
+    if data.get("sender_type", None) == bot:
+        return
+
+    text = data.get("text", "").lower().strip()
+
+    if text == "help":
+        bot.send("Usage: rsssub <rss url>\n"
+                 "       rssunsub <number>\n"
+                 "       rssinfo <number>\n"
+                 "       rsslist")
+
+    elif text.startswith("rsssub") or text.startswith("rssub"):
+        params = text.split()[1:]
+        if len(params) < 1:
+            bot.send("Usage: rsssub <rss url>")
+            return
+
+        url = params[0]
+        feed_data = load_data(feed_filename)
+        feed_data["feedlist"] = feed_data.get("feedlist", []) + [{
+            "feed_url": url,
+        }]
+        save_data(feed_filename, feed_data)
+        bot.send(f"Added feed \"{url}\"")
+
+        check_feeds(bot, feed_filename)
+
+    elif text.startswith("rssunsub"):
+        params = text.split()[1:]
+        if len(params) < 1:
+            bot.send("Usage: rssunsub <number>")
+            return
+
+        feed_index = int(params[0]) - 1
+        feed_data = load_data(feed_filename)
+        if not (0 <= feed_index < len(feed_data["feedlist"])):
+            bot.send("Feed number out of bounds!")
+            return
+
+        feed = feed_data["feedlist"][feed_index]
+        del feed_data["feedlist"][feed_index]
+        save_data(feed_filename, feed_data)
+
+        bot.send(f"Unsubscribed \"{feed.get('tite', '')}\"\n"
+                 f"{feed.get('feed_url', '')}")
+
+    elif text.startswith("rssinfo"):
+        params = text.split()[1:]
+        if len(params) < 1:
+            bot.send("Usage: rssinfo <number>")
+            return
+
+        feed_index = int(params[0]) - 1
+        feeds = load_data(feed_filename).get("feedlist", [])
+        if not (0 <= feed_index < len(feeds)):
+            bot.send("Feed number out of bounds!")
+            return
+
+        feed = feeds[feed_index]
+        bot.send(f"Title: {feed.get('title', '')}\n"
+                 f"Description: {feed.get('description', '')}\n"
+                 f"Link: {feed.get('link', '')}")
+
+    elif text.startswith("rsslist"):
+        feeds = load_data(feed_filename).get("feedlist", [])
+        titles = map(lambda i, f: f"{i + 1}. {f.get('title', '')}",
+                     enumerate(feeds))
+        bot.send("Subscribed feeds:\n" + "\n".join(titles))
 
 
 ###############################################################################
@@ -75,14 +156,22 @@ def main(bot_id: str) -> None:
         raise Exception("No bot ID supplied! Missing RSS_BOT_ID env variable.")
     bot = GroupmeBot(bot_id=bot_id)
 
-    if args.cron or "REQUEST_METHOD" not in env:
-        check_feeds(bot, args.feed_file)
-    else:
-        print("Content-type: text/html\n\n")
+    try:
+        if args.cron or "REQUEST_METHOD" not in env:
+            check_feeds(bot, args.feed_file)
+        elif env.get("REQUEST_METHOD") == "POST":
+            print("Content-type: text/html\n\n")
 
-        headers = {k[5:].replace("_", "-"): v for k, v in env.items()
-                   if k.startswith("HTTP_")}
-        handle_message(bot, headers)
+            headers = {k[5:].replace("_", "-"): v for k, v in env.items()
+                       if k.startswith("HTTP_")}
+            content_length = int(env.get("CONTENT_LENGTH", 0))
+            data = json.loads(sys.stdin.read(content_length))
+            handle_post(bot, data, headers, args.feed_file)
+        else:
+            assert(env.get("REQUEST_METHOD") == "GET")
+            print("Nothing to see here.")
+    except Exception as e:
+        bot.send(f"Exception\n{str(e)}")
 
 
 if __name__ == "__main__":
