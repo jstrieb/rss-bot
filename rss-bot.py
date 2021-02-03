@@ -6,7 +6,9 @@ import cgitb
 import json
 import os
 import sys
+import time
 
+from hashlib import md5
 from typing import Dict
 
 # Required to make feedparser import successfully in Apache cgi-bin
@@ -14,6 +16,8 @@ for user in os.listdir("/home"):
     sys.path.insert(0, f"/home/{user}/.local/lib/python3.8/site-packages")
 
 import feedparser
+
+from html2text import html2text
 
 from groupme import GroupmeBot
 
@@ -59,14 +63,49 @@ def save_data(feed_filename: str, feed_data: Dict) -> None:
         json.dump(feed_data, f)
 
 
-def check_feeds(bot: GroupmeBot, feed_filename: str) -> None:
+def check_feed(bot: GroupmeBot, feed: Dict, silent: bool = False) -> None:
+    feed_data = feedparser.parse(feed.get("feed_url", ""))
+
+    feed["title"] = feed_data.feed.get("title", "No title")
+    feed["link"] = feed_data.feed.get("link", "")
+    feed["description"] = feed_data.feed.get("description", "")
+
+    # Find new items by using a hash set (literally a hash set of hashes)
+    seen = set(feed.get("seen_entries", []))
+    entries = {md5(e.get("title", "") + e.get("summary", "")).hexdigest(): e
+               for e in feed_data.entries}
+
+    if not silent:
+        for key in set(entries) - seen:
+            entry = entries[key]
+            output = feed.get("title", "")
+            if "title" in entry:
+                output += "\n" + entry["title"]
+            if "description" in entry and len(entry["description"]) < 500:
+                output += "\n" + html2text(entry["description"])
+            if "link" in entry:
+                output += "\n" + entry["link"]
+            bot.send(output)
+
+    feed["seen_entries"] = list(seen | set(entries))
+
+
+def check_feeds(bot: GroupmeBot, feed_filename: str,
+                silent: bool = False) -> None:
     """
     Check feeds for updates, sending via GroupMe if updated info
     :param bot: bot to send updates with
     :param feed_filename: saved feed data to read from and write to
+    :param silent: whether to send updates with the bot or not
     """
     feeds = load_data(feed_filename)
-    print(json.dumps(feeds, indent=2))
+    feeds["feedlist"] = feeds.get("feedlist", [])
+
+    for feed in feeds["feedlist"]:
+        check_feed(bot, feed, silent=silent)
+
+    feeds["last_checked"] = int(time.time())
+    save_data(feed_filename, feeds)
 
 
 def handle_post(bot: GroupmeBot, data: Dict,
@@ -104,7 +143,7 @@ def handle_post(bot: GroupmeBot, data: Dict,
         save_data(feed_filename, feed_data)
         bot.send(f"Added feed \"{url}\"")
 
-        check_feeds(bot, feed_filename)
+        check_feeds(bot, feed_filename, silent=True)
 
     elif text.startswith("rssunsub"):
         params = text.split()[1:]
