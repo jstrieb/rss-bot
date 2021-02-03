@@ -180,6 +180,12 @@ def main(bot_id: str) -> None:
 
 
 if __name__ == "__main__":
+    # NOTE: RSS_BOT_ID environment variable must bet set in two places to work
+    # with Apache:
+    # - Add "export RSS_BOT_ID=..." to /etc/apache2/envvars
+    # - Add "SetEnv RSS_BOT_ID ${RSS_BOT_ID}" to VirtualHost in
+    #   /etc/apache2/sites-available/000-default.conf
+    
     if DEBUG:
         # Display errors in a well-formatted way if debugging
         print("Content-type: text/html\n\n")
