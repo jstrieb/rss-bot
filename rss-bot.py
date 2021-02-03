@@ -9,7 +9,7 @@ import sys
 
 from typing import Dict
 
-import requests
+import feedparser
 
 from groupme import GroupmeBot
 
