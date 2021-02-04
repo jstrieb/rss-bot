@@ -10,7 +10,6 @@ import time
 
 from hashlib import md5
 from typing import Dict
-from urllib.parse import urlparse
 
 # Required to make feedparser import successfully in Apache cgi-bin
 for user in os.listdir("/home"):
@@ -140,13 +139,6 @@ def handle_post(bot: GroupmeBot, data: Dict,
             return
 
         url = params[0]
-        try:
-            urlparse(url)
-        except:
-            bot.send("Invalid URL!\n" 
-                     "Usage: rsssub <rss url>")
-            return
-
         feed_data = load_data(feed_filename)
         feed_data["feedlist"] = feed_data.get("feedlist", []) + [{
             "feed_url": url,
