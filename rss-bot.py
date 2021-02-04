@@ -10,6 +10,7 @@ import time
 
 from hashlib import md5
 from typing import Dict
+from urllib.parse import urlparse
 
 # Required to make feedparser import successfully in Apache cgi-bin
 for user in os.listdir("/home"):
@@ -60,7 +61,7 @@ def load_data(feed_filename: str) -> Dict:
 
 def save_data(feed_filename: str, feed_data: Dict) -> None:
     with open(feed_filename, "w") as f:
-        json.dump(feed_data, f)
+        json.dump(feed_data, f, indent=2)
 
 
 def check_feed(bot: GroupmeBot, feed: Dict, silent: bool = False) -> None:
@@ -139,6 +140,13 @@ def handle_post(bot: GroupmeBot, data: Dict,
             return
 
         url = params[0]
+        try:
+            urlparse(url)
+        except:
+            bot.send("Invalid URL!\n" 
+                     "Usage: rsssub <rss url>")
+            return
+
         feed_data = load_data(feed_filename)
         feed_data["feedlist"] = feed_data.get("feedlist", []) + [{
             "feed_url": url,
@@ -171,6 +179,10 @@ def handle_post(bot: GroupmeBot, data: Dict,
         params = text.split()[1:]
         if len(params) < 1:
             bot.send("Usage: rssinfo <number>")
+            feeds = load_data(feed_filename).get("feedlist", [])
+            titles = map(lambda f: f"{f[0] + 1}. {f[1].get('title', '')}",
+                         enumerate(feeds))
+            bot.send("Subscribed feeds:\n" + "\n".join(titles))
             return
 
         feed_index = int(params[0]) - 1
@@ -245,4 +257,4 @@ if __name__ == "__main__":
             main(os.getenv("RSS_BOT_ID", None))
         # Catch all exceptions so we don't leak errors and cause security vulns
         except:
-            pass
+            print(e)
