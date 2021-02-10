@@ -133,7 +133,7 @@ def handle_post(bot: GroupmeBot, data: Dict,
                  "       rsslist")
 
     elif text.startswith("rsssub") or text.startswith("rssub"):
-        params = text.split()[1:]
+        params = data.get("text", "").strip().split()[1:]
         if len(params) < 1:
             bot.send("Usage: rsssub <rss url>")
             return
