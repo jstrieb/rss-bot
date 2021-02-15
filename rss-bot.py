@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import time
+import traceback
 
 from hashlib import md5
 from typing import Dict
@@ -26,7 +27,7 @@ from groupme import GroupmeBot
 # Global variables
 ###############################################################################
 
-DEBUG = True
+DEBUG = False
 
 
 ###############################################################################
@@ -225,7 +226,7 @@ def main(bot_id: str) -> None:
         if DEBUG:
             raise e
         else:
-            bot.send(f"Exception\n{str(e)}")
+            bot.send(f"Exception\n{traceback.format_exc()}")
 
 
 if __name__ == "__main__":
@@ -249,4 +250,4 @@ if __name__ == "__main__":
             main(os.getenv("RSS_BOT_ID", None))
         # Catch all exceptions so we don't leak errors and cause security vulns
         except:
-            print(e)
+            pass
